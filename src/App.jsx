@@ -117,7 +117,25 @@ function wrap(text, max) {
   return lines.length ? lines : [text];
 }
 const coerceT = (t) => { let v = Number(t); if (isNaN(v)) v = 0.5; if (v > 1) v = v / 100; return Math.max(0, Math.min(1, v)); };
-const extractJson = (text) => { const s = text.indexOf("{"), e = text.lastIndexOf("}"); if (s < 0 || e < 0) return null; try { return JSON.parse(text.slice(s, e + 1)); } catch { return null; } };
+const extractJson = (text) => {
+  if (!text) return null;
+  let t = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
+  const s = t.indexOf("{");
+  if (s < 0) return null;
+  const e = t.lastIndexOf("}");
+  if (e > s) { try { return JSON.parse(t.slice(s, e + 1)); } catch { /* fall through */ } }
+  // best-effort: slice to the last balanced close brace (handles trailing junk)
+  let depth = 0, inStr = false, esc = false, lastValid = -1;
+  for (let i = s; i < t.length; i++) {
+    const ch = t[i];
+    if (inStr) { if (esc) esc = false; else if (ch === "\\") esc = true; else if (ch === '"') inStr = false; }
+    else if (ch === '"') inStr = true;
+    else if (ch === "{" || ch === "[") depth++;
+    else if (ch === "}" || ch === "]") { depth--; if (depth === 0) lastValid = i; }
+  }
+  if (lastValid > s) { try { return JSON.parse(t.slice(s, lastValid + 1)); } catch { /* */ } }
+  return null;
+};
 const loadLS = (k, fb) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? fb; } catch { return fb; } };
 
 /* ============================ component ============================ */
@@ -223,15 +241,32 @@ export default function App() {
   /* parser */
   const mapIt = async () => {
     if (!draft.trim()) return; setLoading(true); setErr("");
-    const sys = `You parse a tabletop campaign brief into a story graph. Return ONLY raw JSON, no fences. Schema: {"nodes":[{"id","type":"plot|quest|lore","label","owner"(quest),"seq"(plot int from 1),"tension"(0..1),"summary":"<=18 words"}],"edges":[{"from","to","type":"flow|thread|theme","why":"<=12 words"}]}. flow=plot order; thread=quest converging on a beat; theme=lore resonance. Infer links incl. thematic, but if a goal connects to nothing, leave it with NO edges. 6-12 nodes.`;
+    const sys = `You turn a campaign brief or world bible into a STORY GRAPH. Return ONLY raw JSON — no prose, no code fences.
+Schema: {"nodes":[{"id","type":"plot|quest|lore","label","owner"(quest only = the PC's name),"seq"(plot only, integer story order from 1),"tension"(0..1),"summary":"<=20 words"}],"edges":[{"from","to","type":"flow|thread|theme","why":"<=12 words"}]}
+Build a focused spine, not an index of every detail:
+- plot = the campaign's main beats in story order. If the source has no explicit order, INFER a sensible act sequence starting from the inciting incident.
+- quest = ONE node per player character, owner = that PC's name, summarizing what they personally want.
+- lore = only the few major factions / villains / forces that matter to the spine.
+- flow = plot beat -> next plot beat. thread = a PC quest converging on a plot beat. theme = lore tied to a beat.
+Infer thread/theme links including thematic ones, but if a PC goal connects to nothing yet, leave it with NO edges. Aim for ~6-10 beats, one quest per PC, a few lore nodes. Keep summaries tight so the JSON stays complete.`;
+    let text = "";
     try {
-      const text = await llmComplete({ system: sys, messages: [{ role: "user", content: draft.trim() }], maxTokens: 4000 }, settings);
+      text = await llmComplete({ system: sys, messages: [{ role: "user", content: draft.trim() }], maxTokens: 8000 }, settings);
       const parsed = extractJson(text);
-      if (!parsed?.nodes?.length) throw new Error();
+      if (!parsed) throw new Error(text.trim() ? "unparseable" : "empty");
+      if (!parsed.nodes?.length) throw new Error("nonodes");
       const ids = new Set(parsed.nodes.map((n) => n.id));
       const clean = (parsed.edges || []).filter((e) => ids.has(e.from) && ids.has(e.to)).map((e, i) => ({ ...e, id: e.id || `x${i}` }));
       setNodes(layout(parsed.nodes, clean)); setEdges(clean); setSel(null); setFocusPC(null); setSugg({}); setShowPaste(false);
-    } catch (e) { setErr(e.message?.includes("key") || e.message?.includes("Ollama") ? e.message : "Couldn't parse that into a map — try more structure, or a stronger model."); } finally { setLoading(false); }
+    } catch (e) {
+      if (text) console.error("Story Pipes — raw model output:\n", text);
+      const m = e.message || "";
+      if (m.includes("key") || m.includes("Ollama") || m.includes("Anthropic") || m.includes("Request failed")) setErr(m + " — a long brief can exceed the function timeout; shorten it or retry.");
+      else if (m === "empty") setErr("The model returned nothing — likely a serverless timeout on a long brief. Shorten it, raise the function timeout, or retry.");
+      else if (m === "unparseable") setErr("The reply wasn't complete JSON — usually the output was cut off. Shorten or split the brief, then retry (raw output is in the console).");
+      else if (m === "nonodes") setErr("Parsed, but found no story beats. Add an explicit sequence of main beats (inciting incident + a few acts) and retry.");
+      else setErr("Couldn't parse that into a map — see the browser console for the raw output.");
+    } finally { setLoading(false); }
   };
 
   /* writing partner */
