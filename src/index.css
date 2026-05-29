@@ -1,0 +1,14 @@
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: #0e0d15;
+  color: #e8e3d6;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  -webkit-font-smoothing: antialiased;
+}
+#root { padding: 18px; max-width: 1500px; margin: 0 auto; }
+textarea, input, select, button { font-family: inherit; }
+textarea:focus, input:focus, select:focus { outline: 1px solid rgba(216,162,62,0.5); }
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 5px; }
