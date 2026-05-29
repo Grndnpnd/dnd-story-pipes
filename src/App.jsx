@@ -277,7 +277,8 @@ ${serialize()}`;
   const selEdge = sel?.kind === "edge" ? edges.find((e) => e.id === sel.id) : null;
   const selPipes = selNode ? edges.filter((e) => e.from === selNode.id || e.to === selNode.id) : [];
   const VIEW_H = 600;
-  const providerBadge = settings.provider === "ollama" ? `Ollama · ${settings.ollamaModel}` : `Claude · ${settings.claudeModel}`;
+  const modelLabel = settings.provider === "ollama" ? settings.ollamaModel : settings.claudeModel;
+  const providerBadge = `${settings.provider === "ollama" ? "Ollama" : "Claude"} · ${modelLabel || "server default"}`;
 
   return (
     <div style={{ background: PALETTE.bg, color: PALETTE.ink, fontFamily: MONO, borderRadius: 14, overflow: "hidden", border: `1px solid ${PALETTE.panelEdge}` }}>
@@ -307,12 +308,12 @@ ${serialize()}`;
             <Chip active={settings.provider === "ollama"} onClick={() => setSettings({ ...settings, provider: "ollama" })}>Ollama (local)</Chip>
           </div>
           {settings.provider === "claude" ? (
-            <Field label="Model (any model your ANTHROPIC_API_KEY can reach)"><input value={settings.claudeModel} onChange={(e) => setSettings({ ...settings, claudeModel: e.target.value })} style={fld()} /></Field>
+            <Field label="Model — blank uses the server's ANTHROPIC_MODEL"><input value={settings.claudeModel} onChange={(e) => setSettings({ ...settings, claudeModel: e.target.value })} placeholder="e.g. claude-sonnet-4-6 (or leave blank)" style={fld()} /></Field>
           ) : (
-            <Field label="Model (any Ollama Cloud model, e.g. gpt-oss:120b-cloud, qwen3-coder:480b-cloud)"><input value={settings.ollamaModel} onChange={(e) => setSettings({ ...settings, ollamaModel: e.target.value })} style={fld()} /></Field>
+            <Field label="Model — blank uses the server's OLLAMA_MODEL"><input value={settings.ollamaModel} onChange={(e) => setSettings({ ...settings, ollamaModel: e.target.value })} placeholder="e.g. gpt-oss:120b-cloud (or leave blank)" style={fld()} /></Field>
           )}
           <div style={{ fontSize: 11.5, color: PALETTE.inkFaint, marginTop: 12, lineHeight: 1.5 }}>
-            Both providers are proxied through your serverless function using server-side env vars — <code style={{ color: PALETTE.inkMute }}>ANTHROPIC_API_KEY</code> for Claude, <code style={{ color: PALETTE.inkMute }}>OLLAMA_API_KEY</code> for Ollama Cloud. No keys are entered or stored in the browser. Only your provider/model choice and map data are saved locally.
+            Both providers are proxied through your serverless function using server-side env vars — <code style={{ color: PALETTE.inkMute }}>ANTHROPIC_API_KEY</code>/<code style={{ color: PALETTE.inkMute }}>ANTHROPIC_MODEL</code> for Claude, <code style={{ color: PALETTE.inkMute }}>OLLAMA_API_KEY</code>/<code style={{ color: PALETTE.inkMute }}>OLLAMA_MODEL</code> for Ollama Cloud. A model set above overrides the env default for this browser; leave it blank to use the env value. No keys are stored in the browser.
           </div>
         </div>
       )}

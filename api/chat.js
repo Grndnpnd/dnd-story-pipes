@@ -1,11 +1,12 @@
 /* Vercel serverless function: /api/chat
  *
- * One proxy, two providers, keys held server-side via env vars:
- *   provider "claude" -> Anthropic Messages API  (ANTHROPIC_API_KEY)
- *   provider "ollama" -> Ollama Cloud chat API    (OLLAMA_API_KEY)
+ * One proxy, two providers, all config server-side via env vars:
+ *   provider "claude" -> Anthropic Messages API  (ANTHROPIC_API_KEY, ANTHROPIC_MODEL)
+ *   provider "ollama" -> Ollama Cloud chat API    (OLLAMA_API_KEY, OLLAMA_MODEL)
  *
- * Optional: OLLAMA_HOST overrides the Ollama base URL (default https://ollama.com)
- * for self-hosted or proxied setups. The browser never sees any key.
+ * Model precedence: a model sent from the client (Settings) wins; otherwise the
+ * env default is used; otherwise a hardcoded fallback. OLLAMA_HOST optionally
+ * overrides the Ollama base URL (default https://ollama.com). No key reaches the browser.
  */
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -27,11 +28,12 @@ export default async function handler(req, res) {
         return;
       }
       const host = (process.env.OLLAMA_HOST || "https://ollama.com").replace(/\/+$/, "");
+      const useModel = model || process.env.OLLAMA_MODEL || "gpt-oss:120b-cloud";
       const r = await fetch(`${host}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
         body: JSON.stringify({
-          model: model || "gpt-oss:120b-cloud",
+          model: useModel,
           messages: [{ role: "system", content: system }, ...(messages || [])],
           stream: false,
           format: "json",
@@ -53,15 +55,11 @@ export default async function handler(req, res) {
       res.status(400).json({ error: "Set ANTHROPIC_API_KEY in your environment." });
       return;
     }
+    const useModel = model || process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({
-        model: model || "claude-sonnet-4-6",
-        system,
-        messages,
-        max_tokens: max_tokens || 2000,
-      }),
+      body: JSON.stringify({ model: useModel, system, messages, max_tokens: max_tokens || 2000 }),
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) {

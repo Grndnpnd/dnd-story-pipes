@@ -20,13 +20,15 @@ Open the app, click the gear (Settings) to choose your provider and model, then 
 
 ## Environment variables
 
-| Var | Used by | Where to get it |
+| Var | Used by | Notes |
 | --- | --- | --- |
-| `ANTHROPIC_API_KEY` | Claude provider | console.anthropic.com |
-| `OLLAMA_API_KEY` | Ollama Cloud provider | ollama.com → your account → API keys (or `ollama signin`) |
+| `ANTHROPIC_API_KEY` | Claude | from console.anthropic.com |
+| `ANTHROPIC_MODEL` | Claude | default model, e.g. `claude-sonnet-4-6` |
+| `OLLAMA_API_KEY` | Ollama Cloud | ollama.com → account → API keys (or `ollama signin`) |
+| `OLLAMA_MODEL` | Ollama Cloud | default model, e.g. `gpt-oss:120b-cloud` |
 | `OLLAMA_HOST` | optional | defaults to `https://ollama.com`; override for self-hosted/proxied Ollama |
 
-You only need the key for the provider(s) you use. Set them in `.env.local` for local dev and in the Vercel dashboard for production.
+You only need the vars for the provider(s) you use. Set them in `.env.local` for local dev and in the Vercel dashboard for production. The model can also be set per-browser in Settings, which overrides the env default; leave Settings blank to use the env model.
 
 ## Providers (Settings → gear)
 
