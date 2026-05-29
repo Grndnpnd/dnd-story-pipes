@@ -8,10 +8,8 @@
  * env default is used; otherwise a hardcoded fallback. OLLAMA_HOST optionally
  * overrides the Ollama base URL (default https://ollama.com). No key reaches the browser.
  */
-// A 120B cloud model chewing through a long brief can exceed Vercel's default
-// 10s function timeout. Give it room (Hobby allows up to 60s).
-export const config = { maxDuration: 60 };
-
+// Long parses can run well past a minute. The duration cap is set in vercel.json
+// (300s). That requires Fluid Compute enabled on the Vercel project — see README.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "POST only" });

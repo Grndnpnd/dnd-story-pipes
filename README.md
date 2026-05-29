@@ -37,6 +37,19 @@ You only need the vars for the provider(s) you use. Set them in `.env.local` for
 
 Model names move over time on both providers — if a call returns a 4xx, the first thing to check is that the model string in Settings is one your key can reach.
 
+## Long parses / timeouts (504)
+
+A large brief on a big model (e.g. a 120B Ollama Cloud model generating a full JSON graph) can run longer than a minute. A standard Vercel function caps at 60s on Hobby, so it returns `504 FUNCTION_INVOCATION_TIMEOUT`.
+
+To allow up to 5 minutes:
+
+1. In your Vercel project, **Settings → Functions → enable Fluid Compute**. This raises the max duration ceiling to 300s on Hobby (800s on Pro/Enterprise). It's free, and time spent waiting on the model counts as idle I/O, not billed CPU.
+2. `vercel.json` already sets `api/chat.js` to `maxDuration: 300`. Redeploy.
+
+Note: if Fluid Compute is **off**, a Hobby project will fail to build with a maxDuration error — turn it on first, or lower `maxDuration` to 60 in `vercel.json`.
+
+The more durable fix for slowness is a faster model for parsing — Claude, or a smaller Ollama Cloud model — since a 120B model emitting thousands of tokens is the slow part. You can keep the big model for the writing partner and use a quicker one to parse.
+
 ## Deploy to Vercel
 
 ```bash
